@@ -1,5 +1,7 @@
 package com.bignerdranch.android.geoquiz;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,9 +15,12 @@ import com.bignerdranch.android.geoquiz.bean.Question;
 public class QuizActivity extends AppCompatActivity {
     private static final String TAG = "QuizActivity";
     private static final String KEY_INDEX = "index";
+    private static final int REQUEST_CODE_CHEAT = 0;
 
     private Button mTrueButton;
     private Button mFalseButton;
+
+    private Button mCheatButton;
 
     private Button mNextButton;
     private TextView mQuestionTextView;
@@ -29,6 +34,7 @@ public class QuizActivity extends AppCompatActivity {
             new Question(R.string.question_asia, true),
     };
 
+    private boolean mIsCheater;
     private int mCurrentIndex = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,8 +65,17 @@ public class QuizActivity extends AppCompatActivity {
         mNextButton.setOnClickListener(view -> {
             //更新下一个问题索引，顺序+
             mCurrentIndex = (mCurrentIndex + 1) % mQuestionBank.length;
+            //默认不是骗子
+            mIsCheater = false;
             //获取下一个问题点信息，以便用户作答
             updateQuestion();
+        });
+
+        mCheatButton.setOnClickListener(v -> {
+            //这是偷看答案的行为，属于骗子行为。
+            boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
+            Intent intent = CheatActivity.newIntent(QuizActivity.this, answerIsTrue);
+            startActivityForResult(intent, REQUEST_CODE_CHEAT);
         });
     }
 
@@ -69,6 +84,7 @@ public class QuizActivity extends AppCompatActivity {
         mTrueButton = findViewById(R.id.true_button);
         mFalseButton = findViewById(R.id.false_button);
         mNextButton = findViewById(R.id.next_button);
+        mCheatButton = findViewById(R.id.cheat_button);
     }
 
     //获取当前问题点信息
@@ -83,14 +99,31 @@ public class QuizActivity extends AppCompatActivity {
         boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
 
         int messageResId = 0;
-        //用户回答的结果跟问题答案对比
-        if (userPressedTrue == answerIsTrue) {
-            messageResId = R.string.correct_toast;
-        } else {
-            messageResId = R.string.incorrect_toast;
+        if (mIsCheater) {
+            messageResId = R.string.judgment_toast;
+        }else {
+            //用户回答的结果跟问题答案对比
+            if (userPressedTrue == answerIsTrue) {
+                messageResId = R.string.correct_toast;
+            } else {
+                messageResId = R.string.incorrect_toast;
+            }
         }
-
         Toast.makeText(this, messageResId, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != Activity.RESULT_OK) {
+            return;
+        }
+        if (requestCode == REQUEST_CODE_CHEAT) {
+            if (data == null) {
+                return;
+            }
+            //代表收到跳转类的答案，查看是否偷看了答案
+            mIsCheater = CheatActivity.wasAnswerShown(data);
+        }
     }
 
     @Override
